@@ -1,4 +1,5 @@
 pyTelegramBotAPI
+hijri-converter
 playwright
 requests
 aiohttp
