@@ -163,7 +163,8 @@ def handle_all(message):
                 data = user_steps[uid]
                 with open(data['filename'], 'r') as f:
                     content = f.read()
-                content = re.sub(r"["']\d{10}:[\w-]{30,}["']", lambda m: f'"{data["tokens"].pop(0)}"', content)
+                pattern = r'["\']\d{10}:[\w-]{30,}["\']'
+                content = re.sub(pattern, lambda m: f'"{data["tokens"].pop(0)}"', content)
                 content = re.sub(r"OWNER_ID\s*=\s*\d+", f"OWNER_ID = {new_id}", content)
                 with open(data['filename'], 'w') as f:
                     f.write(content)
