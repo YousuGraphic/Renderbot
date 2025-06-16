@@ -14,7 +14,6 @@ REPORT_BOT_ID = 5777422098
 bot = TeleBot(TOKEN)
 report_bot = TeleBot(REPORT_BOT_TOKEN)
 
-# العمليات الجارية
 running_scripts = {}
 user_steps = {}
 
@@ -174,4 +173,19 @@ def handle_all(message):
             except:
                 bot.send_message(message.chat.id, "❌ حصل خطأ أثناء التعديل.")
 
-bot.infinity_polling()
+# ✅ شغل البوت عبر Thread حتى لا يعطل Flask
+import threading
+threading.Thread(target=bot.infinity_polling).start()
+
+# ✅ أضف Flask لخدمة Render
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running..."
+
+# ✅ اجعل التطبيق يستمع على منفذ Render
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
