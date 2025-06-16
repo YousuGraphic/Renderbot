@@ -59,8 +59,7 @@ def list_scripts(message):
     if message.from_user.id != OWNER_ID:
         return
     if running_scripts:
-        reply = "📂 السكربتات المشغلة:
-" + '\n'.join(running_scripts.keys())
+        reply = "📂 السكربتات المشغلة:\n" + '\n'.join(running_scripts.keys())
     else:
         reply = "🟢 لا توجد سكربتات مشغلة حاليًا."
     bot.send_message(message.chat.id, reply)
