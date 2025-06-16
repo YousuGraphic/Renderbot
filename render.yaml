@@ -7,5 +7,9 @@ services:
     plan: free
     autoDeploy: true
     envVars:
-      - key: TOKEN
-        value: "python Renderbot.py"
+      - key: CONTROL_BOT_TOKEN
+        value: "7990020438:AAHJ2-7l2JURUVgIV5tNliDiS53UsIbHbE4"
+      - key: REPORT_BOT_TOKEN
+        value: "7990743429:AAGtuHxeR8q2vbxoL-Bnq_gcP9-6-plddMk"
+      - key: PORT
+        value: "8080"
