@@ -4,11 +4,11 @@ import subprocess
 from telebot import TeleBot, types
 
 # توكن البوت الرئيسي
-TOKEN = '7990020438:AAGHUMX78JtCimQNiY4-NvK8jJOMJg7cXz8'
+TOKEN = '7990020438:AAHJ2-7l2JURUVgIV5tNliDiS53UsIbHbE4'
 OWNER_ID = 5777422098
 
 # بوت التقارير
-REPORT_BOT_TOKEN = '7990743429:AAH6tF8wnu80ZJ-Jd_j3Z-Jni0x2zjFJss8'
+REPORT_BOT_TOKEN = '7990743429:AAGtuHxeR8q2vbxoL-Bnq_gcP9-6-plddMk'
 REPORT_BOT_ID = 5777422098
 
 bot = TeleBot(TOKEN)
