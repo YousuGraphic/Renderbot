@@ -7,3 +7,4 @@ openai
 pandas
 selenium
 telebot
+flask
