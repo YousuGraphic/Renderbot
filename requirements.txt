@@ -1,4 +1,5 @@
 pyTelegramBotAPI
+playwright
 requests
 aiohttp
 beautifulsoup4
