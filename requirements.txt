@@ -1,4 +1,5 @@
 pyTelegramBotAPI
+schedule
 hijri-converter
 playwright
 requests
