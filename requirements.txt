@@ -1,5 +1,5 @@
 pyTelegramBotAPI
-schedule
+schedule==1.2.2
 hijri-converter
 playwright
 requests
