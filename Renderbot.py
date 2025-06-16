@@ -1,156 +1,62 @@
 import os
 import re
-import subprocess
-from telebot import TeleBot, types
+import threading
+import time
+import schedule
+from flask import Flask
+from telebot import TeleBot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# توكن البوت الرئيسي
-TOKEN = '7990020438:AAHJ2-7l2JURUVgIV5tNliDiS53UsIbHbE4'
-OWNER_ID = 5777422098
+# ==== إعدادات البوتات ====
+BOT_TOKEN = "7990020438:AAHJ2-7l2JURUVgIV5tNliDiS53UsIbHbE4"
+REPORT_BOT_TOKEN = "7990743429:AAGtuHxeR8q2vbxoL-Bnq_gcP9-6-plddMk"
+REPORT_BOT_ID = 5777422098  # رقم معرف بوت التقارير
+CONTROL_BOT_CHAT_ID = None  # لأنك تريد إرسال /start داخل نفس بوت التحكم نفسه
 
-# بوت التقارير
-REPORT_BOT_TOKEN = '7990743429:AAGtuHxeR8q2vbxoL-Bnq_gcP9-6-plddMk'
-REPORT_BOT_ID = 5777422098
-
-bot = TeleBot(TOKEN)
+bot = TeleBot(BOT_TOKEN)
 report_bot = TeleBot(REPORT_BOT_TOKEN)
 
-running_scripts = {}
 user_steps = {}
 
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    if message.from_user.id != OWNER_ID:
-        return
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("📤 رفع ملف", "📥 إدخال كود سكريبت")
-    markup.add("⚙️ تعديل التوكن والايدي", "🗑️ حذف ملف")
-    bot.send_message(message.chat.id, "🤖 مرحبًا بك في بوت التحكم:", reply_markup=markup)
+# ==== دالة لوحة الأزرار مع زر استدعاء ملف ====
 
-@bot.message_handler(commands=['run'])
-def run_script(message):
-    if message.from_user.id != OWNER_ID:
-        return
-    name = message.text.replace('/run', '').strip()
-    if not os.path.isfile(name):
-        bot.send_message(message.chat.id, "❌ الملف غير موجود.")
-        return
-    p = subprocess.Popen(['python3', name])
-    running_scripts[name] = p
-    bot.send_message(message.chat.id, f"🚀 تم تشغيل: {name}")
-    report_bot.send_message(REPORT_BOT_ID, f"🚀 تم تشغيل السكربت: {name}")
+def get_main_keyboard():
+    markup = InlineKeyboardMarkup(row_width=1)
+    # أزرارك السابقة (أضفها هنا حسب حاجتك)
+    markup.add(InlineKeyboardButton("📂 استدعاء ملف", callback_data="call_file"))
+    return markup
 
-@bot.message_handler(commands=['stop'])
-def stop_script(message):
-    if message.from_user.id != OWNER_ID:
-        return
-    name = message.text.replace('/stop', '').strip()
-    p = running_scripts.get(name)
-    if p:
-        p.terminate()
-        bot.send_message(message.chat.id, f"🛑 تم إيقاف: {name}")
-        report_bot.send_message(REPORT_BOT_ID, f"🛑 تم إيقاف السكربت: {name}")
-        del running_scripts[name]
+# ==== معالجة الأزرار ====
+
+@bot.callback_query_handler(func=lambda call: call.data == "call_file")
+def ask_for_filename(call):
+    bot.send_message(call.message.chat.id, "✍️ أرسل اسم الملف الذي تريد استدعاؤه:")
+    bot.register_next_step_handler_by_chat_id(call.message.chat.id, send_file_by_name)
+
+def send_file_by_name(message):
+    filename = message.text.strip()
+    data_dir = "./"  # مجلد الملفات المرفوعة (يمكن تعديله)
+
+    filepath = os.path.join(data_dir, filename)
+    if os.path.exists(filepath):
+        with open(filepath, 'rb') as f:
+            bot.send_document(message.chat.id, f)
     else:
-        bot.send_message(message.chat.id, "❌ لم يتم العثور على العملية.")
+        bot.send_message(message.chat.id, "❌ الملف غير موجود، تأكد من الاسم وأعد المحاولة.")
 
-@bot.message_handler(commands=['scripts'])
-def list_scripts(message):
-    if message.from_user.id != OWNER_ID:
-        return
-    if running_scripts:
-        reply = "📂 السكربتات المشغلة:\n" + '\n'.join(running_scripts.keys())
-    else:
-        reply = "🟢 لا توجد سكربتات مشغلة حاليًا."
-    bot.send_message(message.chat.id, reply)
+# ==== جزء تعديل الملفات بناءً على التوكن و ID المستخدم ====
 
-@bot.message_handler(commands=['exec'])
-def exec_shell(message):
-    if message.from_user.id != OWNER_ID:
-        return
-    try:
-        cmd = message.text.replace('/exec', '').strip()
-        result = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, timeout=60)
-        bot.send_message(message.chat.id, f"<code>{result.decode()}</code>", parse_mode="HTML")
-    except subprocess.CalledProcessError as e:
-        bot.send_message(message.chat.id, f"<code>{e.output.decode()}</code>", parse_mode="HTML")
-
-@bot.message_handler(content_types=['document'])
-def upload_script(message):
-    if message.from_user.id != OWNER_ID:
-        return
-    file_info = bot.get_file(message.document.file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-    name = message.document.file_name
-    with open(name, 'wb') as f:
-        f.write(downloaded_file)
-    bot.send_message(message.chat.id, f"📥 تم حفظ الملف: {name}")
-    report_bot.send_message(REPORT_BOT_ID, f"📥 تم رفع ملف جديد: {name}")
-
-@bot.message_handler(func=lambda m: m.text == "📥 إدخال كود سكريبت")
-def insert_code(message):
-    bot.send_message(message.chat.id, "✍️ أرسل الكود كاملاً:")
-    user_steps[message.from_user.id] = {'step': 'code'}
-
-@bot.message_handler(func=lambda m: m.text == "📤 رفع ملف")
-def request_file(message):
-    bot.send_message(message.chat.id, "📄 أرسل الآن ملف .py ليتم رفعه.")
-
-@bot.message_handler(func=lambda m: m.text == "🗑️ حذف ملف")
-def delete_request(message):
-    bot.send_message(message.chat.id, "🗑️ أرسل اسم الملف المراد حذفه:")
-    user_steps[message.from_user.id] = {'step': 'delete'}
-
-@bot.message_handler(func=lambda m: m.text == "⚙️ تعديل التوكن والايدي")
-def ask_filename(message):
-    bot.send_message(message.chat.id, "📂 أرسل اسم الملف (مثال: bot.py):")
-    user_steps[message.from_user.id] = {'step': 'filename'}
-
-@bot.message_handler(content_types=['text'])
-def handle_all(message):
-    if message.from_user.id != OWNER_ID:
-        return
-
+@bot.message_handler(func=lambda m: True)
+def handle_messages(message):
     uid = message.from_user.id
+
+    # افترض وجود خطوات في user_steps - مثال مبسط
     if uid in user_steps:
-        step = user_steps[uid]['step']
+        step = user_steps[uid].get('step')
 
-        if step == 'code':
-            filename = "uploaded_code.py"
-            with open(filename, 'w') as f:
-                f.write(message.text)
-            bot.send_message(message.chat.id, f"✅ تم حفظ الكود في {filename}")
-            report_bot.send_message(REPORT_BOT_ID, f"📝 تم رفع سكربت نصي: {filename}")
-            user_steps.pop(uid)
-
-        elif step == 'delete':
-            fname = message.text.strip()
-            if os.path.exists(fname):
-                os.remove(fname)
-                bot.send_message(message.chat.id, f"🗑️ تم حذف: {fname}")
-                report_bot.send_message(REPORT_BOT_ID, f"🗑️ تم حذف الملف: {fname}")
-            else:
-                bot.send_message(message.chat.id, "❌ الملف غير موجود.")
-            user_steps.pop(uid)
-
-        elif step == 'filename':
-            fname = message.text.strip()
-            if not os.path.isfile(fname):
-                bot.send_message(message.chat.id, "❌ الملف غير موجود.")
-                return
-            user_steps[uid].update({'filename': fname, 'step': 'token_count'})
-            bot.send_message(message.chat.id, "🔢 كم عدد التوكنات؟")
-
-        elif step == 'token_count':
-            try:
-                count = int(message.text.strip())
-                user_steps[uid].update({'token_count': count, 'tokens': [], 'step': 'token_input'})
-                bot.send_message(message.chat.id, "🔐 أرسل التوكن رقم 1:")
-            except:
-                bot.send_message(message.chat.id, "❗ أرسل رقم صحيح.")
-
-        elif step == 'token_input':
-            user_steps[uid]['tokens'].append(message.text.strip())
+        if step == 'tokens':
             if len(user_steps[uid]['tokens']) < user_steps[uid]['token_count']:
+                user_steps[uid]['tokens'].append(message.text.strip())
                 bot.send_message(message.chat.id, f"🔐 أرسل التوكن رقم {len(user_steps[uid]['tokens']) + 1}:")
             else:
                 user_steps[uid]['step'] = 'user_id'
@@ -162,30 +68,77 @@ def handle_all(message):
                 data = user_steps[uid]
                 with open(data['filename'], 'r') as f:
                     content = f.read()
+
                 pattern = r'["\']\d{10}:[\w-]{30,}["\']'
-                content = re.sub(pattern, lambda m: f'"{data["tokens"].pop(0)}"', content)
+                # استبدال التوكنات
+                for token in data['tokens']:
+                    content = re.sub(pattern, f'"{token}"', content, count=1)
+                # استبدال OWNER_ID
                 content = re.sub(r"OWNER_ID\s*=\s*\d+", f"OWNER_ID = {new_id}", content)
+
                 with open(data['filename'], 'w') as f:
                     f.write(content)
+
                 bot.send_message(message.chat.id, "✅ تم تعديل الملف.")
-                report_bot.send_message(REPORT_BOT_ID, f"✅ تم تعديل الملف: {data['filename']}")
+                report_bot.send_message(REPORT_BOT_ID, f"✅ تم تعديل الملف: **{data['filename']}**", parse_mode='Markdown')
                 user_steps.pop(uid)
+
+            except Exception as e:
+                bot.send_message(message.chat.id, f"❌ حصل خطأ أثناء التعديل:\n{e}")
+
+# ==== إعادة تشغيل البوت تلقائياً عند الأخطاء ====
+
+def run_bot():
+    while True:
+        try:
+            bot.infinity_polling(timeout=60, long_polling_timeout=60)
+        except Exception as e:
+            try:
+                report_bot.send_message(REPORT_BOT_ID, f"❌ خطأ في بوت التحكم:\n{e}")
             except:
-                bot.send_message(message.chat.id, "❌ حصل خطأ أثناء التعديل.")
+                pass
+            time.sleep(5)
 
-# ✅ شغل البوت عبر Thread حتى لا يعطل Flask
-import threading
-threading.Thread(target=bot.infinity_polling).start()
+threading.Thread(target=run_bot, daemon=True).start()
 
-# ✅ أضف Flask لخدمة Render
-from flask import Flask
+# ==== جدولة إرسال "/start" مرتين يومياً ====
+
+def send_start_message():
+    try:
+        # إرسال نص /start إلى بوت التحكم نفسه (نفس الشات الذي يعمل فيه البوت)
+        # إذا BOT لديه chat_id معروف يمكن تغييره
+        # هنا نرسل إلى نفس البوت إلى أول مستخدم - أو يمكن التعديل حسب حاجتك
+        # لأن بوت لا يمكن أن يرسل إلى نفسه مباشرة، أرسل إلى معرف دردشة معروف:
+        if CONTROL_BOT_CHAT_ID:
+            bot.send_message(CONTROL_BOT_CHAT_ID, "/start")
+        else:
+            # بديل: أرسل إلى المطور (REPORT_BOT_ID) أو غيره
+            report_bot.send_message(REPORT_BOT_ID, "/start (تم إرسال أمر start)")
+
+    except Exception as e:
+        try:
+            report_bot.send_message(REPORT_BOT_ID, f"❌ خطأ أثناء إرسال /start:\n{e}")
+        except:
+            pass
+
+schedule.every().day.at("00:00").do(send_start_message)
+schedule.every().day.at("12:00").do(send_start_message)
+
+def schedule_runner():
+    while True:
+        schedule.run_pending()
+        time.sleep(30)
+
+threading.Thread(target=schedule_runner, daemon=True).start()
+
+# ==== Flask لخدمة Render ====
+
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Bot is running..."
 
-# ✅ اجعل التطبيق يستمع على منفذ Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
