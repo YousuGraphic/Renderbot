@@ -4,7 +4,7 @@ import subprocess
 from telebot import TeleBot, types
 
 # توكن البوت الرئيسي
-TOKEN = '7990020438:AAGHUMX78JtCimQNiY4-NvK8jJg7cXz8'
+TOKEN = '7990020438:AAGHUMX78JtCimQNiY4-NvK8jJOMJg7cXz8'
 OWNER_ID = 5777422098
 
 # بوت التقارير
